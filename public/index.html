@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>♟ ChessMate</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f14;--surface:#161920;--surface2:#1e2230;--border:#2a2f42;
+  --accent:#e8c97a;--accent2:#7a9ee8;--green:#4ade80;--red:#f87171;
+  --yellow:#fbbf24;--text:#e8eaf0;--text2:#8891aa;--text3:#555e78;
+  --light-sq:#f0d9b5;--dark-sq:#b58863;
+  --shadow:0 8px 32px rgba(0,0,0,.5);--radius:16px;--radius-sm:8px;
+}
+.theme-light{--bg:#f0ebe0;--surface:#fff;--surface2:#f5f0e8;--border:#ddd5c5;--text:#1a1c25;--text2:#555e78;--text3:#9ca3b8;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+.screen.active{display:flex;}
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.app-logo{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--accent);}
+.app-logo span{color:var(--text2);font-weight:400;font-size:12px;font-family:'DM Sans',sans-serif;display:block;}
+.header-actions{display:flex;gap:8px;}
+.icon-btn{width:36px;height:36px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .2s;}
+.scroll-area{flex:1;overflow-y:auto;padding:16px;}
+.scroll-area::-webkit-scrollbar{width:4px;}
+.scroll-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.profile-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;position:relative;overflow:hidden;}
+.profile-card::before{content:'♛';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.04;line-height:1;}
+.profile-top{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.avatar{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#1a1c25;flex-shrink:0;border:2px solid var(--accent);}
+.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;}
+.profile-name{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;}
+.profile-elo{font-size:12px;color:var(--accent);font-weight:600;font-family:'DM Mono',monospace;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 8px;text-align:center;border:1px solid var(--border);}
+.stat-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;}
+.stat-val.wins{color:var(--green);}.stat-val.losses{color:var(--red);}.stat-val.draws{color:var(--text2);}.stat-val.coins{color:var(--accent);}
+.stat-label{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;}
+.coins-bar{display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--bg);border-radius:var(--radius-sm);padding:10px 14px;border:1px solid var(--border);}
+.coins-amount{font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--accent);}
+.section-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:var(--radius-sm);border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;width:100%;}
+.btn-primary{background:var(--accent);color:#1a1c25;}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-danger{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.btn-green{background:rgba(74,222,128,.15);color:var(--green);border:1px solid rgba(74,222,128,.3);}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.mode-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.mode-card:hover{border-color:var(--accent);background:var(--surface2);}
+.mode-card:active{transform:scale(.98);}
+.mode-icon{font-size:28px;width:48px;height:48px;background:var(--surface2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mode-info{flex:1;}
+.mode-title{font-weight:600;font-size:15px;margin-bottom:2px;}
+.mode-desc{font-size:12px;color:var(--text2);}
+.mode-badge{background:var(--accent);color:#1a1c25;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+/* Game screen */
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.game-back{font-size:20px;cursor:pointer;padding:4px 8px;}
+.game-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;}
+.player-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;transition:all .3s;}
+.player-bar.active-turn{background:var(--surface2);border-left:3px solid var(--accent);}
+.mini-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#1a1c25;flex-shrink:0;}
+.p-name{font-weight:600;font-size:14px;}
+.p-elo{font-size:11px;color:var(--text2);}
+.player-timer{margin-left:auto;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--text);background:var(--bg);padding:4px 10px;border-radius:8px;border:1px solid var(--border);}
+.player-timer.low-time{color:var(--red);border-color:var(--red);animation:pulse 1s infinite;}
+.captured-pieces{font-size:11px;color:var(--text2);margin-left:4px;letter-spacing:-2px;}
+.board-wrapper{flex:1;display:flex;align-items:center;justify-content:center;padding:8px;min-height:0;}
+.board-container{position:relative;user-select:none;}
+.board-coords-file{display:flex;justify-content:space-around;padding:0 4px;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;}
+.board-coords-rank{position:absolute;left:-14px;top:0;display:flex;flex-direction:column;justify-content:space-around;height:100%;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;}
+#chessboard{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border-radius:8px;overflow:hidden;box-shadow:0 0 0 3px var(--accent),0 8px 40px rgba(0,0,0,.6);}
+.square{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:background .15s;}
+.square.light{background:var(--light-sq);}.square.dark{background:var(--dark-sq);}
+.square.selected{background:rgba(232,201,122,.55)!important;}
+.square.move-hint::after{content:'';position:absolute;width:30%;height:30%;border-radius:50%;background:rgba(74,222,128,.45);pointer-events:none;}
+.square.capture-hint{background:rgba(248,113,113,.55)!important;}
+.square.special-hint{background:rgba(251,191,36,.45)!important;}
+.square.last-move{background:rgba(232,201,122,.3)!important;}
+.square.in-check{background:rgba(248,113,113,.6)!important;}
+.piece{font-size:clamp(22px,6vw,42px);line-height:1;cursor:grab;z-index:2;transition:transform .1s;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));pointer-events:none;}
+.status-bar{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;min-height:44px;}
+.status-text{font-size:13px;font-weight:600;text-align:center;}
+.status-text.check{color:var(--red);}
+.status-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-brilliant{background:rgba(139,92,246,.2);color:#c084fc;border:1px solid rgba(139,92,246,.4);}
+.badge-good{background:rgba(74,222,128,.15);color:var(--green);border:1px solid rgba(74,222,128,.3);}
+.badge-inaccuracy{background:rgba(251,191,36,.15);color:var(--yellow);border:1px solid rgba(251,191,36,.3);}
+.badge-mistake{background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.3);}
+.badge-blunder{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.piece-guide-panel{position:absolute;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;z-index:100;box-shadow:var(--shadow);bottom:calc(100% + 60px);min-width:200px;display:none;}
+.piece-guide-panel.show{display:block;}
+.guide-title{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;}
+.guide-desc{color:var(--text2);line-height:1.6;}
+.guide-legend{display:flex;flex-direction:column;gap:4px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .3s;}
+.overlay.show{opacity:1;pointer-events:all;}
+.overlay-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:340px;width:100%;text-align:center;transform:scale(.9);transition:transform .3s;}
+.overlay.show .overlay-card{transform:scale(1);}
+.overlay-icon{font-size:56px;margin-bottom:12px;}
+.overlay-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:900;margin-bottom:8px;}
+.overlay-sub{color:var(--text2);font-size:14px;margin-bottom:20px;line-height:1.5;}
+.elo-change{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:20px;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-bottom:16px;}
+.elo-change.up{background:rgba(74,222,128,.15);color:var(--green);border:1px solid rgba(74,222,128,.3);}
+.elo-change.down{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.overlay-btns{display:flex;flex-direction:column;gap:10px;}
+/* Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal.show{opacity:1;pointer-events:all;}
+.modal-sheet{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:24px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .3s;}
+.modal.show .modal-sheet{transform:translateY(0);}
+.modal-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:16px;}
+.bet-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 40px 12px 14px;color:var(--text);font-size:16px;font-family:'DM Mono',monospace;outline:none;margin-bottom:12px;}
+.bet-input:focus{border-color:var(--accent);}
+.bet-presets{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.bet-preset{padding:6px 14px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:13px;cursor:pointer;transition:all .2s;}
+.bet-preset:hover{border-color:var(--accent);color:var(--accent);}
+/* Promo */
+.promo-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:900;opacity:0;pointer-events:none;transition:opacity .2s;}
+.promo-modal.show{opacity:1;pointer-events:all;}
+.promo-card{background:var(--surface);border-radius:var(--radius);padding:20px;border:1px solid var(--border);}
+.promo-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;text-align:center;margin-bottom:16px;}
+.promo-pieces{display:flex;gap:12px;}
+.promo-piece{width:60px;height:60px;background:var(--surface2);border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;transition:all .2s;}
+.promo-piece:hover{border-color:var(--accent);transform:scale(1.1);}
+/* Toast */
+.toast-container{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow);opacity:0;transform:translateY(-10px);transition:all .3s;}
+.toast.show{opacity:1;transform:translateY(0);}
+/* History */
+.history-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border);}
+.history-result{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.result-win{background:rgba(74,222,128,.15);}.result-loss{background:rgba(248,113,113,.15);}.result-draw{background:rgba(136,145,170,.15);}
+.history-info{flex:1;}
+.history-vs{font-size:13px;font-weight:600;}
+.history-meta{font-size:11px;color:var(--text2);margin-top:2px;}
+.elo-up{color:var(--green);}.elo-down{color:var(--red);}
+/* Leaderboard */
+.lb-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border);}
+.lb-rank{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;width:24px;color:var(--text3);}
+.lb-rank.gold{color:#fbbf24;}.lb-rank.silver{color:#94a3b8;}.lb-rank.bronze{color:#b45309;}
+.lb-name{flex:1;font-weight:600;}
+.lb-elo{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);}
+/* Match card */
+.match-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s;}
+.match-card:hover{border-color:var(--accent2);}
+.live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 1s infinite;flex-shrink:0;}
+/* Admin */
+.admin-player-row{display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border);}
+.admin-player-row.banned{opacity:.5;border-color:var(--red);}
+.admin-actions{display:flex;gap:6px;margin-left:auto;}
+.admin-btn{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;}
+.admin-btn.ban{background:rgba(248,113,113,.2);color:var(--red);}
+.admin-btn.unban{background:rgba(74,222,128,.2);color:var(--green);}
+.admin-btn.coins{background:rgba(232,201,122,.2);color:var(--accent);}
+.spectator-badge{background:rgba(122,158,232,.15);color:var(--accent2);border:1px solid rgba(122,158,232,.3);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.online-indicator{width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;margin-right:4px;animation:pulse 2s infinite;}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text2);}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease forwards;}
+/* Room input */
+.room-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font-size:16px;font-family:'DM Mono',monospace;outline:none;margin-bottom:12px;letter-spacing:3px;}
+.room-input:focus{border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══ SCREEN: HOME ═══ -->
+<div class="screen active" id="screen-home">
+  <div class="app-header">
+    <div class="app-logo">♟ ChessMate<span>Telegram Chess Arena</span></div>
+    <div class="header-actions">
+      <div class="icon-btn" id="themeToggle">🌙</div>
+      <div class="icon-btn" id="adminBtn" style="display:none">👑</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="play">♟ Play</div>
+    <div class="tab" data-tab="leaderboard">🏆 Top</div>
+    <div class="tab" data-tab="history">📜 History</div>
+    <div class="tab" data-tab="profile">👤 Profile</div>
+  </div>
+
+  <!-- PLAY TAB -->
+  <div class="scroll-area" id="tab-play">
+    <div class="profile-card fade-in">
+      <div class="profile-top">
+        <div class="avatar" id="homeAvatar">?</div>
+        <div>
+          <div class="profile-name" id="homeUsername">Loading...</div>
+          <div class="profile-elo" id="homeElo">ELO: ―</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:11px;color:var(--text3)">Status</div>
+          <div style="font-size:12px;color:var(--green);font-weight:600"><span class="online-indicator"></span>Online</div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val" id="statGames">0</div><div class="stat-label">Games</div></div>
+        <div class="stat-box"><div class="stat-val wins" id="statWins">0</div><div class="stat-label">Wins</div></div>
+        <div class="stat-box"><div class="stat-val losses" id="statLosses">0</div><div class="stat-label">Losses</div></div>
+        <div class="stat-box"><div class="stat-val draws" id="statDraws">0</div><div class="stat-label">Draws</div></div>
+      </div>
+      <div class="coins-bar">
+        <span style="font-size:18px">🪙</span>
+        <div><div class="coins-amount" id="homeCoins">1000</div><div style="font-size:12px;color:var(--text2)">Coins Balance</div></div>
+      </div>
+    </div>
+
+    <div class="section-title">Game Modes</div>
+    <div class="mode-card" id="btnVsAI">
+      <div class="mode-icon">🤖</div>
+      <div class="mode-info"><div class="mode-title">vs Computer</div><div class="mode-desc">Practice against AI</div></div>
+    </div>
+    <div class="mode-card" id="btnVsLocal">
+      <div class="mode-icon">👥</div>
+      <div class="mode-info"><div class="mode-title">Local Match</div><div class="mode-desc">Pass & play on same device</div></div>
+    </div>
+    <div class="mode-card" id="btnVsOnline">
+      <div class="mode-icon">🌐</div>
+      <div class="mode-info"><div class="mode-title">Online Match</div><div class="mode-desc">Real-time · Bet coins · ELO</div></div>
+      <div class="mode-badge">LIVE</div>
+    </div>
+    <div class="mode-card" id="btnSpectate">
+      <div class="mode-icon">👁</div>
+      <div class="mode-info"><div class="mode-title">Spectate</div><div class="mode-desc">Watch live matches</div></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD TAB -->
+  <div class="scroll-area" id="tab-leaderboard" style="display:none">
+    <div class="section-title">Top Players</div>
+    <div id="leaderboardList"><div class="empty-state"><div class="empty-icon">🏆</div><p>Loading...</p></div></div>
+    <button class="btn btn-secondary" id="btnRefreshLb" style="margin-top:12px">🔄 Refresh</button>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="scroll-area" id="tab-history" style="display:none">
+    <div id="historyList"><div class="empty-state"><div class="empty-icon">📜</div><p>No games yet</p></div></div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div class="scroll-area" id="tab-profile" style="display:none">
+    <div class="profile-card">
+      <div class="profile-top">
+        <div class="avatar" id="profileAvatar">?</div>
+        <div>
+          <div class="profile-name" id="profileUsername">Player</div>
+          <div class="profile-elo" id="profileElo">ELO: 1200</div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val" id="pStatGames">0</div><div class="stat-label">Games</div></div>
+        <div class="stat-box"><div class="stat-val wins" id="pStatWins">0</div><div class="stat-label">Wins</div></div>
+        <div class="stat-box"><div class="stat-val losses" id="pStatLosses">0</div><div class="stat-label">Losses</div></div>
+        <div class="stat-box"><div class="stat-val draws" id="pStatDraws">0</div><div class="stat-label">Draws</div></div>
+      </div>
+      <div class="coins-bar">
+        <span style="font-size:18px">🪙</span>
+        <div><div class="coins-amount" id="profileCoins">1000</div><div style="font-size:12px;color:var(--text2)">Coins</div></div>
+      </div>
+    </div>
+    <div class="section-title">Win Rate</div>
+    <div style="background:var(--surface);border-radius:var(--radius-sm);padding:16px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:8px;">
+        <span>Wins <span style="color:var(--green)" id="wrWins">0%</span></span>
+        <span>Draws <span id="wrDraws">0%</span></span>
+        <span>Losses <span style="color:var(--red)" id="wrLosses">0%</span></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden;display:flex;">
+        <div id="wrBarWin" style="background:var(--green);height:100%;transition:width .5s;width:0%"></div>
+        <div id="wrBarDraw" style="background:var(--text3);height:100%;transition:width .5s;width:0%"></div>
+        <div id="wrBarLoss" style="background:var(--red);height:100%;transition:width .5s;width:0%"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-secondary" id="btnSyncStats">☁️ Sync to Server</button>
+      <button class="btn btn-danger" id="btnResetStats">🗑 Reset Statistics</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: GAME ═══ -->
+<div class="screen" id="screen-game">
+  <div class="game-header">
+    <div class="game-back" id="gameBack">←</div>
+    <div class="game-title" id="gameTitle">Chess</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <div class="spectator-badge" id="spectatorBadge" style="display:none">👁 Watching</div>
+      <div style="font-size:12px;color:var(--accent);font-weight:600" id="gameModeLabel">Rapid</div>
+    </div>
+  </div>
+  <div class="player-bar" id="playerBarBlack">
+    <div class="mini-avatar" id="pBlackAvatar">♟</div>
+    <div><div class="p-name" id="pBlackName">Black</div><div class="p-elo" id="pBlackElo">ELO 1200</div></div>
+    <span class="captured-pieces" id="capturedByBlack"></span>
+    <div class="player-timer" id="timerBlack">10:00</div>
+  </div>
+  <div class="board-wrapper">
+    <div class="board-container" id="boardContainer">
+      <div class="board-coords-rank" id="rankCoords"></div>
+      <div id="chessboard"></div>
+      <div class="board-coords-file" id="fileCoords"></div>
+      <div class="piece-guide-panel" id="pieceGuidePanel">
+        <div class="guide-title"><span id="guideIcon">♟</span> <span id="guideTitle">Pawn</span></div>
+        <div class="guide-desc" id="guideDesc"></div>
+        <div class="guide-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(74,222,128,.45)"></div>Normal move</div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(248,113,113,.7)"></div>Capture</div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(251,191,36,.45)"></div>Special</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="player-bar" id="playerBarWhite">
+    <div class="mini-avatar" id="pWhiteAvatar">♙</div>
+    <div><div class="p-name" id="pWhiteName">White</div><div class="p-elo" id="pWhiteElo">ELO 1200</div></div>
+    <span class="captured-pieces" id="capturedByWhite"></span>
+    <div class="player-timer" id="timerWhite">10:00</div>
+  </div>
+  <div class="status-bar">
+    <div class="status-text" id="statusText">White to move</div>
+    <div class="status-badge" id="moveQualityBadge" style="display:none"></div>
+    <!-- In-game actions -->
+    <div style="margin-left:auto;display:flex;gap:6px;" id="inGameActions">
+      <div class="icon-btn" id="btnOfferDraw" title="Offer Draw" style="font-size:13px">🤝</div>
+      <div class="icon-btn" id="btnResign" title="Resign" style="font-size:13px">🏳️</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: ADMIN ═══ -->
+<div class="screen" id="screen-admin">
+  <div class="app-header">
+    <div class="game-back" id="adminBack">←</div>
+    <div class="app-logo">👑 Admin Panel</div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="admin-stats">📊 Stats</div>
+    <div class="tab" data-tab="admin-players">👥 Players</div>
+    <div class="tab" data-tab="admin-matches">♟ Matches</div>
+  </div>
+
+  <!-- ADMIN STATS -->
+  <div class="scroll-area" id="tab-admin-stats">
+    <div class="stats-row" style="margin-bottom:16px">
+      <div class="stat-box"><div class="stat-val" id="adTotalPlayers">-</div><div class="stat-label">Players</div></div>
+      <div class="stat-box"><div class="stat-val wins" id="adTotalMatches">-</div><div class="stat-label">Matches</div></div>
+      <div class="stat-box"><div class="stat-val coins" id="adTotalCoins">-</div><div class="stat-label">Coins</div></div>
+      <div class="stat-box"><div class="stat-val" id="adAvgElo">-</div><div class="stat-label">Avg ELO</div></div>
+    </div>
+    <div class="section-title">Quick Actions</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-danger" id="adResetLeaderboard">🗑 Reset All ELOs to 1200</button>
+      <button class="btn btn-secondary" id="adRefreshStats">🔄 Refresh Stats</button>
+    </div>
+    <div style="margin-top:16px;background:var(--surface);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">API Endpoints</div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);line-height:2;">
+        GET /api/players/leaderboard/top<br>
+        POST /api/players/save<br>
+        GET /api/players/:id<br>
+        POST /api/admin/players/:id/ban<br>
+        POST /api/admin/players/:id/coins<br>
+        POST /api/admin/leaderboard/reset
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PLAYERS -->
+  <div class="scroll-area" id="tab-admin-players" style="display:none">
+    <div style="margin-bottom:12px;display:flex;gap:8px;">
+      <input type="text" id="adminSearchInput" placeholder="Search players..." style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:14px;outline:none;">
+    </div>
+    <div id="adminPlayersList"><div class="empty-state"><div class="empty-icon">👥</div><p>Loading...</p></div></div>
+  </div>
+
+  <!-- ADMIN MATCHES -->
+  <div class="scroll-area" id="tab-admin-matches" style="display:none">
+    <div id="adminMatchesList"><div class="empty-state"><div class="empty-icon">♟</div><p>Loading...</p></div></div>
+  </div>
+</div>
+
+<!-- ═══ SPECTATE SCREEN ═══ -->
+<div class="screen" id="screen-spectate">
+  <div class="app-header">
+    <div class="game-back" id="spectateBack">←</div>
+    <div class="app-logo">👁 Live Matches</div>
+  </div>
+  <div class="scroll-area">
+    <div class="section-title">Active Games</div>
+    <div id="spectateMatchList"><div class="empty-state"><div class="empty-icon">👁</div><p>No live matches right now</p></div></div>
+    <button class="btn btn-secondary" id="btnRefreshSpectate" style="margin-top:12px">🔄 Refresh</button>
+  </div>
+</div>
+
+<!-- GAME OVER OVERLAY -->
+<div class="overlay" id="gameOverOverlay">
+  <div class="overlay-card">
+    <div class="overlay-icon" id="gameOverIcon">♛</div>
+    <div class="overlay-title" id="gameOverTitle">Checkmate!</div>
+    <div class="overlay-sub" id="gameOverSub">White wins!</div>
+    <div class="elo-change" id="eloChange" style="display:none">+12 ELO</div>
+    <div style="margin-bottom:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2)">🪙 Coins: <span id="coinChangeDisplay" style="color:var(--accent)">+0</span></div>
+    <div class="overlay-btns">
+      <button class="btn btn-primary" id="btnRematch">🔄 Rematch</button>
+      <button class="btn btn-secondary" id="btnBackHome">🏠 Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAWN PROMOTION -->
+<div class="promo-modal" id="promoModal">
+  <div class="promo-card">
+    <div class="promo-title">Promote Pawn ♟</div>
+    <div class="promo-pieces" id="promoPieces"></div>
+  </div>
+</div>
+
+<!-- BETTING MODAL -->
+<div class="modal" id="bettingModal">
+  <div class="modal-sheet">
+    <div class="modal-title">💰 Place Your Bet</div>
+    <div style="color:var(--text2);font-size:13px;margin-bottom:14px">Balance: <span style="color:var(--accent);font-weight:700" id="betBalance">1000</span> 🪙</div>
+    <input type="number" class="bet-input" id="betInput" placeholder="Bet amount (0 = no bet)" min="0">
+    <div class="bet-presets">
+      <div class="bet-preset" data-bet="10">10</div>
+      <div class="bet-preset" data-bet="50">50</div>
+      <div class="bet-preset" data-bet="100">100</div>
+      <div class="bet-preset" data-bet="250">250</div>
+      <div class="bet-preset" data-bet="500">500</div>
+    </div>
+    <div class="btn-grid">
+      <button class="btn btn-secondary" id="betCancel">Skip</button>
+      <button class="btn btn-primary" id="betConfirm">Play ♟</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONLINE ROOM MODAL -->
+<div class="modal" id="onlineRoomModal">
+  <div class="modal-sheet">
+    <div class="modal-title">🌐 Online Match</div>
+    <div style="color:var(--text2);font-size:13px;margin-bottom:14px">Create a room or join with code</div>
+    <input type="text" class="room-input" id="roomInput" placeholder="Room code (leave blank = auto)" maxlength="6">
+    <div class="btn-grid">
+      <button class="btn btn-secondary" id="btnJoinRoom">🚪 Join Room</button>
+      <button class="btn btn-primary" id="btnCreateRoom">➕ Create Room</button>
+    </div>
+    <button class="btn btn-secondary" id="cancelRoomModal" style="margin-top:4px">Cancel</button>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN MODAL -->
+<div class="modal" id="adminLoginModal">
+  <div class="modal-sheet">
+    <div class="modal-title">👑 Admin Access</div>
+    <input type="password" class="bet-input" id="adminKeyInput" placeholder="Enter admin key..." style="letter-spacing:3px;">
+    <div class="btn-grid">
+      <button class="btn btn-secondary" id="cancelAdminLogin">Cancel</button>
+      <button class="btn btn-primary" id="confirmAdminLogin">Enter 👑</button>
+    </div>
+  </div>
+</div>
+
+<!-- COINS MODAL (admin) -->
+<div class="modal" id="coinsModal">
+  <div class="modal-sheet">
+    <div class="modal-title">🪙 Modify Coins</div>
+    <div style="color:var(--text2);font-size:13px;margin-bottom:12px">Player: <span style="color:var(--accent);font-weight:700" id="coinsModalPlayer">-</span></div>
+    <input type="number" class="bet-input" id="coinsAmount" placeholder="Amount (+add / -remove)">
+    <div class="btn-grid">
+      <button class="btn btn-secondary" id="cancelCoins">Cancel</button>
+      <button class="btn btn-primary" id="confirmCoins">Apply 🪙</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════
+// TELEGRAM + PLAYER DATA
+// ════════════════════════════════════════════════
+let tg = window.Telegram?.WebApp;
+if(tg){ tg.ready(); tg.expand(); }
+
+const STORAGE_KEY = 'chessmate_v4';
+let playerData = JSON.parse(localStorage.getItem(STORAGE_KEY)||'null') || {
+  username:'Player', id: Math.random().toString(36).slice(2,10),
+  elo:1200, coins:1000, wins:0, losses:0, draws:0, games:0, history:[], photoUrl:null
+};
+
+// Check if owner (Telegram user ID based)
+const OWNER_IDS = []; // Add your Telegram user ID here, e.g. [123456789]
+
+function isOwner() {
+  return OWNER_IDS.includes(playerData.id) || localStorage.getItem('admin_authed') === 'true';
+}
+
+function initTelegramUser() {
+  if(tg?.initDataUnsafe?.user){
+    const u = tg.initDataUnsafe.user;
+    if(!playerData._tgInit){
+      playerData.username = u.first_name + (u.last_name?' '+u.last_name:'');
+      playerData.id = u.id;
+      if(u.photo_url) playerData.photoUrl = u.photo_url;
+      playerData._tgInit = true;
+    }
+  }
+  saveData(); updateUI();
+  if(isOwner()) document.getElementById('adminBtn').style.display='';
+}
+
+function saveData(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(playerData)); }
+
+async function syncToServer(){
+  try {
+    await fetch('/api/players/save', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(playerData)
+    });
+    showToast('✅ Synced to server!');
+  } catch(e){ showToast('⚠️ Sync failed — offline?'); }
+}
+
+function updateUI(){
+  const initials = playerData.username.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+  ['homeAvatar','profileAvatar'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.innerHTML = playerData.photoUrl ? `<img src="${playerData.photoUrl}">` : initials;
+  });
+  document.getElementById('homeUsername').textContent = playerData.username;
+  document.getElementById('homeElo').textContent = `ELO: ${playerData.elo}`;
+  document.getElementById('homeCoins').textContent = playerData.coins.toLocaleString();
+  ['statGames','statWins','statLosses','statDraws'].forEach((id,i)=>{
+    document.getElementById(id).textContent = [playerData.games,playerData.wins,playerData.losses,playerData.draws][i];
+  });
+  document.getElementById('profileUsername').textContent = playerData.username;
+  document.getElementById('profileElo').textContent = `ELO: ${playerData.elo}`;
+  document.getElementById('profileCoins').textContent = playerData.coins.toLocaleString();
+  ['pStatGames','pStatWins','pStatLosses','pStatDraws'].forEach((id,i)=>{
+    document.getElementById(id).textContent = [playerData.games,playerData.wins,playerData.losses,playerData.draws][i];
+  });
+  const total = playerData.games||1;
+  const wp=Math.round(playerData.wins/total*100), dp=Math.round(playerData.draws/total*100), lp=100-wp-dp;
+  document.getElementById('wrWins').textContent=wp+'%';
+  document.getElementById('wrDraws').textContent=dp+'%';
+  document.getElementById('wrLosses').textContent=lp+'%';
+  document.getElementById('wrBarWin').style.width=wp+'%';
+  document.getElementById('wrBarDraw').style.width=dp+'%';
+  document.getElementById('wrBarLoss').style.width=lp+'%';
+  renderHistory();
+}
+
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!playerData.history.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">📜</div><p>No games yet</p></div>'; return; }
+  el.innerHTML=playerData.history.slice().reverse().map(h=>`
+    <div class="history-item">
+      <div class="history-result result-${h.result}">${h.result==='win'?'🏆':h.result==='loss'?'💀':'🤝'}</div>
+      <div class="history-info"><div class="history-vs">vs ${h.opponent}</div><div class="history-meta">${h.mode} · ${h.date}</div></div>
+      <div class="${h.eloDelta>=0?'elo-up':'elo-down'}" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700">${h.eloDelta>=0?'+':''}${h.eloDelta} ELO</div>
+    </div>`).join('');
+}
+
+async function loadLeaderboard(){
+  try{
+    const res = await fetch('/api/players/leaderboard/top?limit=20');
+    const data = await res.json();
+    const el = document.getElementById('leaderboardList');
+    if(!data.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">🏆</div><p>No players yet</p></div>'; return; }
+    el.innerHTML = data.map((p,i)=>`
+      <div class="lb-item">
+        <div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
+        <div class="lb-name">${p.username} ${p.id===playerData.id?'<span style="color:var(--accent);font-size:10px">(You)</span>':''}</div>
+        <div class="lb-elo">${p.elo}</div>
+      </div>`).join('');
+  } catch(e){
+    document.getElementById('leaderboardList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load leaderboard</p></div>';
+  }
+}
+
+// ════════════════════════════════════════════════
+// SOCKET.IO
+// ════════════════════════════════════════════════
+let socket = null;
+let currentRoomId = null;
+let myColor = null;
+
+function initSocket(){
+  if(socket) return;
+  socket = io();
+  socket.on('assignColor', ({color, roomId})=>{
+    myColor = color; currentRoomId = roomId;
+    showToast(color==='w'?'♙ You play White':'♟ You play Black');
+  });
+  socket.on('gameStart', ({white, black, betAmount})=>{
+    showToast('🎮 Match started!');
+    document.getElementById('gameOverOverlay').classList.remove('show');
+    if(gameState) { gameState.config.betAmount = betAmount||0; }
+  });
+  socket.on('moveMade', ({move, turn})=>{
+    if(gameState && myColor && turn === myColor){
+      // Opponent moved — apply it
+      const [fr,fc,tr,tc,type] = move;
+      executeMove(fr,fc,tr,tc,type||'normal', true);
+    }
+  });
+  socket.on('gameEnded', ({result, winner})=>{
+    if(!gameState) return;
+    if(result==='resign') {
+      gameState.status = 'checkmate';
+      gameState.turn = winner==='w'?'b':'w';
+      showGameOver();
+    } else if(result==='draw') {
+      gameState.status = 'stalemate';
+      showGameOver();
+    }
+  });
+  socket.on('drawOffered', ()=>{ if(confirm('Opponent offers a draw. Accept?')){ socket.emit('acceptDraw',{roomId:currentRoomId}); } else { socket.emit('declineDraw',{roomId:currentRoomId}); } });
+  socket.on('drawDeclined', ()=>showToast('❌ Draw declined'));
+  socket.on('playerLeft', ()=>showToast('⚠️ Opponent disconnected'));
+  socket.on('rematchRequested', ()=>{ if(confirm('Opponent wants a rematch!')){ socket.emit('acceptRematch',{roomId:currentRoomId}); } });
+  socket.on('rematchStarted', ({white,black})=>{
+    document.getElementById('gameOverOverlay').classList.remove('show');
+    const cfg = gameState.config;
+    startNewGame(cfg);
+    showToast('🔄 Rematch started!');
+  });
+  socket.on('spectating', ({room})=>{ showToast('👁 Watching the game'); });
+  socket.on('activeRooms', (rooms)=>renderActiveRooms(rooms));
+}
+
+// ════════════════════════════════════════════════
+// CHESS ENGINE (full)
+// ════════════════════════════════════════════════
+const PIECES={wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'};
+const PIECE_INFO={
+  P:{name:'Pawn',icon:'♟',desc:'1 step forward (2 from start). Captures diagonally. Can promote.'},
+  R:{name:'Rook',icon:'♜',desc:'Any number of squares horizontally or vertically.'},
+  N:{name:'Knight',icon:'♞',desc:'L-shape: 2 squares one way, 1 perpendicular. Jumps over pieces.'},
+  B:{name:'Bishop',icon:'♝',desc:'Any number of squares diagonally. Stays same color.'},
+  Q:{name:'Queen',icon:'♛',desc:'Most powerful. Moves in any direction, any distance.'},
+  K:{name:'King',icon:'♚',desc:'1 square any direction. Can castle with rook.'}
+};
+
+function createInitialBoard(){
+  const b=Array(8).fill(null).map(()=>Array(8).fill(null));
+  const order=['R','N','B','Q','K','B','N','R'];
+  for(let i=0;i<8;i++){b[0][i]={c:'b',t:order[i]};b[1][i]={c:'b',t:'P'};b[6][i]={c:'w',t:'P'};b[7][i]={c:'w',t:order[i]};}
+  return b;
+}
+
+let gameState=null;
+function initGame(config){
+  gameState={board:createInitialBoard(),turn:'w',selected:null,legalMoves:[],
+    castlingRights:{wK:true,wQ:true,bK:true,bQ:true},enPassantTarget:null,
+    moveHistory:[],capturedW:[],capturedB:[],status:'playing',config,
+    lastMove:null,timerW:config.totalTime||600,timerB:config.totalTime||600,
+    timerInterval:null,moveQuality:null,spectating:config.spectating||false};
+}
+function copyBoard(b){return b.map(r=>r.map(c=>c?{...c}:null));}
+function isInBounds(r,c){return r>=0&&r<8&&c>=0&&c<8;}
+function isSquareAttacked(board,r,c,byColor){
+  for(let rr=0;rr<8;rr++)for(let cc=0;cc<8;cc++){const p=board[rr][cc];if(!p||p.c!==byColor)continue;if(canAttack(board,rr,cc,r,c))return true;}return false;
+}
+function canAttack(board,fr,fc,tr,tc){
+  const p=board[fr][fc];if(!p)return false;const dr=tr-fr,dc=tc-fc;
+  switch(p.t){
+    case'P':{const dir=p.c==='w'?-1:1;return dr===dir&&Math.abs(dc)===1;}
+    case'R':return slideAttack(board,fr,fc,tr,tc,[[1,0],[-1,0],[0,1],[0,-1]]);
+    case'B':return slideAttack(board,fr,fc,tr,tc,[[1,1],[1,-1],[-1,1],[-1,-1]]);
+    case'Q':return slideAttack(board,fr,fc,tr,tc,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);
+    case'N':return(Math.abs(dr)===2&&Math.abs(dc)===1)||(Math.abs(dr)===1&&Math.abs(dc)===2);
+    case'K':return Math.abs(dr)<=1&&Math.abs(dc)<=1;default:return false;
+  }
+}
+function slideAttack(board,fr,fc,tr,tc,dirs){
+  for(const[dr,dc]of dirs){let r=fr+dr,c=fc+dc;while(isInBounds(r,c)){if(r===tr&&c===tc)return true;if(board[r][c])break;r+=dr;c+=dc;}}return false;
+}
+function findKing(board,color){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(board[r][c]?.c===color&&board[r][c]?.t==='K')return[r,c];return null;}
+function isInCheck(board,color){const kp=findKing(board,color);if(!kp)return false;return isSquareAttacked(board,kp[0],kp[1],color==='w'?'b':'w');}
+function getLegalMoves(board,fr,fc,castling,enPassant){
+  const p=board[fr][fc];if(!p)return[];
+  return getPseudoMoves(board,fr,fc,castling,enPassant).filter(([tr,tc,type])=>{
+    const nb=copyBoard(board);const nc={...castling};applyMoveOnBoard(nb,fr,fc,tr,tc,type,nc);return!isInCheck(nb,p.c);
+  });
+}
+function getPseudoMoves(board,fr,fc,castling,enPassant){
+  const p=board[fr][fc];if(!p)return[];const moves=[];const add=(r,c,t='normal')=>moves.push([r,c,t]);
+  switch(p.t){
+    case'P':{const dir=p.c==='w'?-1:1,startR=p.c==='w'?6:1;
+      if(isInBounds(fr+dir,fc)&&!board[fr+dir][fc]){add(fr+dir,fc);if(fr===startR&&!board[fr+2*dir][fc])add(fr+2*dir,fc);}
+      for(const dc of[-1,1])if(isInBounds(fr+dir,fc+dc)){
+        if(board[fr+dir][fc+dc]&&board[fr+dir][fc+dc].c!==p.c)add(fr+dir,fc+dc,'capture');
+        if(enPassant&&enPassant[0]===fr+dir&&enPassant[1]===fc+dc)add(fr+dir,fc+dc,'enpassant');
+      }break;}
+    case'R':slideMoves(board,fr,fc,p.c,moves,[[1,0],[-1,0],[0,1],[0,-1]]);break;
+    case'B':slideMoves(board,fr,fc,p.c,moves,[[1,1],[1,-1],[-1,1],[-1,-1]]);break;
+    case'Q':slideMoves(board,fr,fc,p.c,moves,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);break;
+    case'N':for(const[dr,dc]of[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]]){const r=fr+dr,c=fc+dc;if(isInBounds(r,c)&&board[r][c]?.c!==p.c)add(r,c,board[r][c]?'capture':'normal');}break;
+    case'K':{
+      for(const[dr,dc]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const r=fr+dr,c=fc+dc;if(isInBounds(r,c)&&board[r][c]?.c!==p.c)add(r,c,board[r][c]?'capture':'normal');}
+      const rank=p.c==='w'?7:0,enemy=p.c==='w'?'b':'w';
+      if(fr===rank&&fc===4){
+        const kk=p.c==='w'?'wK':'bK',qk=p.c==='w'?'wQ':'bQ';
+        if(castling[kk]&&!board[rank][5]&&!board[rank][6]&&board[rank][7]?.t==='R'&&board[rank][7]?.c===p.c&&!isSquareAttacked(board,rank,4,enemy)&&!isSquareAttacked(board,rank,5,enemy)&&!isSquareAttacked(board,rank,6,enemy))add(rank,6,'castleK');
+        if(castling[qk]&&!board[rank][3]&&!board[rank][2]&&!board[rank][1]&&board[rank][0]?.t==='R'&&board[rank][0]?.c===p.c&&!isSquareAttacked(board,rank,4,enemy)&&!isSquareAttacked(board,rank,3,enemy)&&!isSquareAttacked(board,rank,2,enemy))add(rank,2,'castleQ');
+      }break;}
+  }
+  return moves;
+}
+function slideMoves(board,fr,fc,color,moves,dirs){
+  for(const[dr,dc]of dirs){let r=fr+dr,c=fc+dc;while(isInBounds(r,c)){if(board[r][c]){if(board[r][c].c!==color)moves.push([r,c,'capture']);break;}moves.push([r,c,'normal']);r+=dr;c+=dc;}}
+}
+function applyMoveOnBoard(board,fr,fc,tr,tc,type,castling){
+  const p=board[fr][fc];board[tr][tc]=p;board[fr][fc]=null;
+  if(type==='enpassant')board[fr][tc]=null;
+  if(type==='castleK'){board[tr][tc-1]=board[tr][7];board[tr][7]=null;}
+  if(type==='castleQ'){board[tr][tc+1]=board[tr][0];board[tr][0]=null;}
+  if(p.t==='K'){if(p.c==='w'){castling.wK=false;castling.wQ=false;}else{castling.bK=false;castling.bQ=false;}}
+  if(p.t==='R'){if(fr===7&&fc===7)castling.wK=false;if(fr===7&&fc===0)castling.wQ=false;if(fr===0&&fc===7)castling.bK=false;if(fr===0&&fc===0)castling.bQ=false;}
+}
+function getAllLegalMoves(board,color,castling,enPassant){
+  const moves=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(board[r][c]?.c===color){getLegalMoves(board,r,c,castling,enPassant).forEach(m=>moves.push({from:[r,c],to:m}));}return moves;
+}
+function evaluateBoard(board,color){
+  const vals={P:100,N:320,B:330,R:500,Q:900,K:20000};let score=0;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=board[r][c];if(!p)continue;score+=p.c===color?vals[p.t]:-vals[p.t];}return score;
+}
+function classifyMove(prevBoard,newBoard,color){
+  const diff=evaluateBoard(newBoard,color)-evaluateBoard(prevBoard,color);
+  if(diff>=200)return'brilliant';if(diff>=50)return'good';if(diff>=-30)return'good';if(diff>=-80)return'inaccuracy';if(diff>=-150)return'mistake';return'blunder';
+}
+function getBestAIMove(board,color,castling,enPassant){
+  const moves=getAllLegalMoves(board,color,{...castling},enPassant);if(!moves.length)return null;
+  let best=null,bestScore=-Infinity;
+  for(const m of moves){
+    const nb=copyBoard(board),nc={...castling};applyMoveOnBoard(nb,m.from[0],m.from[1],m.to[0],m.to[1],m.to[2],nc);
+    const score=-minimax(nb,color==='w'?'b':'w',nc,null,1,-Infinity,Infinity);
+    if(score>bestScore){bestScore=score;best=m;}
+  }return best;
+}
+function minimax(board,color,castling,enPassant,depth,alpha,beta){
+  if(depth===0)return evaluateBoard(board,color);
+  const moves=getAllLegalMoves(board,color,{...castling},enPassant);if(!moves.length)return isInCheck(board,color)?-9999:0;
+  let best=-Infinity;
+  for(const m of moves){const nb=copyBoard(board),nc={...castling};applyMoveOnBoard(nb,m.from[0],m.from[1],m.to[0],m.to[1],m.to[2],nc);const score=-minimax(nb,color==='w'?'b':'w',nc,null,depth-1,-beta,-alpha);best=Math.max(best,score);alpha=Math.max(alpha,score);if(alpha>=beta)break;}
+  return best;
+}
+
+// ════════════════════════════════════════════════
+// BOARD RENDERING
+// ════════════════════════════════════════════════
+function getSquareSize(){return Math.floor(Math.min(Math.min(window.innerWidth,480)-32,window.innerHeight-280)/8);}
+
+function renderBoard(){
+  const board=document.getElementById('chessboard');const sz=getSquareSize();
+  board.style.width=board.style.height=sz*8+'px';
+  const ranks=document.getElementById('rankCoords'),files=document.getElementById('fileCoords');
+  ranks.style.height=sz*8+'px';
+  ranks.innerHTML=[8,7,6,5,4,3,2,1].map(n=>`<span style="height:${sz}px;display:flex;align-items:center">${n}</span>`).join('');
+  files.innerHTML=['a','b','c','d','e','f','g','h'].map(l=>`<span style="width:${sz}px;text-align:center">${l}</span>`).join('');
+  board.innerHTML='';
+  const gs=gameState;
+  const moveSet=new Set((gs.legalMoves||[]).map(([r,c])=>r*8+c));
+  const captureSet=new Set((gs.legalMoves||[]).filter(([,,t])=>t==='capture'||t==='enpassant').map(([r,c])=>r*8+c));
+  const specialSet=new Set((gs.legalMoves||[]).filter(([,,t])=>t==='castleK'||t==='castleQ'||t==='enpassant').map(([r,c])=>r*8+c));
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const sq=document.createElement('div');sq.className='square '+((r+c)%2===0?'light':'dark');
+    sq.style.width=sq.style.height=sz+'px';sq.dataset.r=r;sq.dataset.c=c;
+    const idx=r*8+c;
+    if(gs.selected&&gs.selected[0]===r&&gs.selected[1]===c)sq.classList.add('selected');
+    if(gs.lastMove&&((gs.lastMove[0]===r&&gs.lastMove[1]===c)||(gs.lastMove[2]===r&&gs.lastMove[3]===c)))sq.classList.add('last-move');
+    if(moveSet.has(idx)){if(captureSet.has(idx))sq.classList.add('capture-hint');else if(specialSet.has(idx))sq.classList.add('special-hint');else sq.classList.add('move-hint');}
+    if(gs.status==='check'){const kp=findKing(gs.board,gs.turn);if(kp&&kp[0]===r&&kp[1]===c)sq.classList.add('in-check');}
+    const p=gs.board[r][c];
+    if(p){const piece=document.createElement('div');piece.className='piece';piece.textContent=PIECES[p.c+p.t];sq.appendChild(piece);}
+    sq.addEventListener('click',onSquareClick);
+    board.appendChild(sq);
+  }
+}
+
+function updateStatusBar(){
+  const gs=gameState,statusEl=document.getElementById('statusText'),badgeEl=document.getElementById('moveQualityBadge');
+  let text=(gs.turn==='w'?'⬜ White':'⬛ Black')+' to move',cls='';
+  if(gs.status==='check'){text='⚠️ CHECK! '+(gs.turn==='w'?'White':'Black')+' in check';cls='check';}
+  if(gs.status==='checkmate'){text='♛ CHECKMATE!';cls='check';}
+  if(gs.status==='stalemate'){text='🤝 Stalemate — Draw!';}
+  statusEl.textContent=text;statusEl.className='status-text '+cls;
+  if(gs.moveQuality){
+    badgeEl.style.display='';badgeEl.className='status-badge badge-'+gs.moveQuality;
+    const labels={brilliant:'✨ Brilliant!',good:'👍 Good',inaccuracy:'⚠️ Inaccuracy',mistake:'❌ Mistake',blunder:'💀 Blunder'};
+    badgeEl.textContent=labels[gs.moveQuality]||'';
+    setTimeout(()=>{badgeEl.style.display='none';gs.moveQuality=null;},3000);
+  }
+  const wBar=document.getElementById('playerBarWhite'),bBar=document.getElementById('playerBarBlack');
+  if(gs.status==='playing'||gs.status==='check'){
+    wBar.className='player-bar'+(gs.turn==='w'?' active-turn':'');
+    bBar.className='player-bar'+(gs.turn==='b'?' active-turn':'');
+  }
+}
+
+function updateCapturedPieces(){
+  document.getElementById('capturedByWhite').textContent=gameState.capturedW.map(p=>PIECES['b'+p]).join('');
+  document.getElementById('capturedByBlack').textContent=gameState.capturedB.map(p=>PIECES['w'+p]).join('');
+}
+
+// ════════════════════════════════════════════════
+// MOVE HANDLING
+// ════════════════════════════════════════════════
+function onSquareClick(e){
+  const gs=gameState;if(!gs||gs.status!=='playing'&&gs.status!=='check')return;
+  if(gs.spectating)return;
+  // Online: only move on your turn
+  if(gs.config.mode==='online'&&myColor&&gs.turn!==myColor)return;
+  const r=+e.currentTarget.dataset.r,c=+e.currentTarget.dataset.c,p=gs.board[r][c];
+  if(!gs.selected){
+    if(p&&p.c===gs.turn){gs.selected=[r,c];gs.legalMoves=getLegalMoves(gs.board,r,c,gs.castlingRights,gs.enPassantTarget);showPieceGuide(p);renderBoard();}
+    return;
+  }
+  const move=gs.legalMoves.find(([mr,mc])=>mr===r&&mc===c);
+  if(move){executeMove(r>-1&&gs.selected[0],gs.selected[1],r,c,move[2]);return;}
+  if(p&&p.c===gs.turn){gs.selected=[r,c];gs.legalMoves=getLegalMoves(gs.board,r,c,gs.castlingRights,gs.enPassantTarget);showPieceGuide(p);}
+  else{gs.selected=null;gs.legalMoves=[];hidePieceGuide();}
+  renderBoard();
+}
+
+function showPieceGuide(p){
+  const info=PIECE_INFO[p.t];if(!info)return;
+  const panel=document.getElementById('pieceGuidePanel');
+  document.getElementById('guideIcon').textContent=PIECES[p.c+p.t];
+  document.getElementById('guideTitle').textContent=info.name;
+  document.getElementById('guideDesc').textContent=info.desc;
+  panel.classList.add('show');setTimeout(()=>panel.classList.remove('show'),3000);
+}
+function hidePieceGuide(){document.getElementById('pieceGuidePanel').classList.remove('show');}
+
+function executeMove(fr,fc,tr,tc,type,fromOpponent=false){
+  const gs=gameState;const prevBoard=copyBoard(gs.board);const captured=gs.board[tr][tc];
+  if(type==='enpassant'){if(gs.board[fr][fc].c==='w')gs.capturedB.push('P');else gs.capturedW.push('P');gs.board[fr][fc.c]=null;gs.board[fr][tc]=null;}
+  if(captured){if(gs.turn==='w')gs.capturedB.push(captured.t);else gs.capturedW.push(captured.t);}
+  applyMoveOnBoard(gs.board,fr,fc,tr,tc,type,gs.castlingRights);
+  const piece=gs.board[tr][tc];
+  if(piece.t==='P'&&Math.abs(tr-fr)===2){gs.enPassantTarget=[(fr+tr)/2,fc];}else{gs.enPassantTarget=null;}
+  gs.lastMove=[fr,fc,tr,tc];gs.selected=null;gs.legalMoves=[];hidePieceGuide();
+  // Emit to opponent
+  if(gs.config.mode==='online'&&socket&&currentRoomId&&!fromOpponent){
+    socket.emit('makeMove',{roomId:currentRoomId,move:[fr,fc,tr,tc,type],fen:'',turn:gs.turn==='w'?'b':'w'});
+  }
+  if(piece.t==='P'&&(tr===0||tr===7)&&!fromOpponent){showPromotion(tr,tc,gs.turn);return;}
+  gs.moveQuality=classifyMove(prevBoard,gs.board,gs.turn);
+  finishTurn();
+}
+
+function finishTurn(){
+  const gs=gameState;gs.turn=gs.turn==='w'?'b':'w';
+  const inCheck=isInCheck(gs.board,gs.turn);
+  const allMoves=getAllLegalMoves(gs.board,gs.turn,gs.castlingRights,gs.enPassantTarget);
+  if(!allMoves.length){gs.status=inCheck?'checkmate':'stalemate';stopTimer();renderBoard();updateStatusBar();setTimeout(()=>showGameOver(),1200);return;}
+  gs.status=inCheck?'check':'playing';
+  if(inCheck)playSound('check');else playSound('move');
+  renderBoard();updateStatusBar();updateCapturedPieces();startTimer();
+  if(gs.config.mode==='vsai'&&gs.turn==='b')setTimeout(doAIMove,600);
+}
+
+function doAIMove(){
+  const gs=gameState;if(gs.status!=='playing'&&gs.status!=='check')return;
+  const best=getBestAIMove(gs.board,'b',gs.castlingRights,gs.enPassantTarget);
+  if(best)executeMove(best.from[0],best.from[1],best.to[0],best.to[1],best.to[2]);
+}
+
+let pendingPromo=null;
+function showPromotion(r,c,color){
+  pendingPromo={r,c,color};const modal=document.getElementById('promoModal');
+  document.getElementById('promoPieces').innerHTML=['Q','R','B','N'].map(t=>`<div class="promo-piece" data-piece="${t}">${PIECES[color+t]}</div>`).join('');
+  document.querySelectorAll('.promo-piece').forEach(el=>{
+    el.addEventListener('click',()=>{
+      gameState.board[pendingPromo.r][pendingPromo.c].t=el.dataset.piece;
+      modal.classList.remove('show');
+      gameState.moveQuality='brilliant';finishTurn();
+    });
+  });
+  modal.classList.add('show');
+}
+
+// ════════════════════════════════════════════════
+// TIMER
+// ════════════════════════════════════════════════
+function formatTime(s){return `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;}
+function startTimer(){
+  const gs=gameState;clearInterval(gs.timerInterval);if(gs.config.totalTime===0)return;
+  gs.timerInterval=setInterval(()=>{
+    if(gs.turn==='w'){gs.timerW--;updateTimerDisplay('w');if(gs.timerW<=0){clearInterval(gs.timerInterval);gs.status='checkmate';showGameOver();}}
+    else{gs.timerB--;updateTimerDisplay('b');if(gs.timerB<=0){clearInterval(gs.timerInterval);gs.status='checkmate';showGameOver();}}
+  },1000);
+}
+function stopTimer(){clearInterval(gameState?.timerInterval);}
+function updateTimerDisplay(c){
+  const el=document.getElementById(c==='w'?'timerWhite':'timerBlack');
+  const t=c==='w'?gameState.timerW:gameState.timerB;
+  el.textContent=gameState.config.totalTime===0?'∞':formatTime(t);
+  el.className='player-timer'+(t<=30&&gameState.config.totalTime>0?' low-time':'');
+}
+function initTimers(){updateTimerDisplay('w');updateTimerDisplay('b');}
+
+// ════════════════════════════════════════════════
+// GAME OVER
+// ════════════════════════════════════════════════
+function showGameOver(){
+  const gs=gameState;stopTimer();
+  const overlay=document.getElementById('gameOverOverlay');
+  let result='draw',eloDelta=0,coinDelta=0;
+  const winnerColor=gs.turn==='w'?'b':'w';
+  const winnerName=winnerColor==='w'?gs.config.whiteName:gs.config.blackName;
+  if(gs.status==='checkmate'){
+    document.getElementById('gameOverIcon').textContent='♛';
+    document.getElementById('gameOverTitle').textContent='Checkmate!';
+    document.getElementById('gameOverSub').textContent=winnerName+' wins!';
+    result = gs.config.mode!=='local'?(winnerColor==='w'?'win':'loss'):'win';
+  } else {
+    document.getElementById('gameOverIcon').textContent='🤝';
+    document.getElementById('gameOverTitle').textContent='Draw!';
+    document.getElementById('gameOverSub').textContent="It's a draw!";
+    result='draw';
+  }
+  if(gs.config.mode!=='local'){
+    if(result==='win')eloDelta=12+Math.floor(Math.random()*8);
+    else if(result==='loss')eloDelta=-(10+Math.floor(Math.random()*8));
+    else eloDelta=1;
+    coinDelta = gs.config.betAmount>0?(result==='win'?gs.config.betAmount:result==='draw'?0:-gs.config.betAmount):(result==='win'?15:result==='draw'?5:-5);
+    playerData.elo=Math.max(100,playerData.elo+eloDelta);
+    playerData.games++;
+    if(result==='win')playerData.wins++;else if(result==='loss')playerData.losses++;else playerData.draws++;
+    playerData.coins=Math.max(0,playerData.coins+coinDelta);
+    playerData.history.push({result,opponent:gs.config.mode==='vsai'?'Computer':gs.config.blackName,mode:gs.config.modeLabel||'Rapid',eloDelta,date:new Date().toLocaleDateString()});
+    saveData();updateUI();syncToServer();
+    const eloEl=document.getElementById('eloChange');eloEl.style.display='';eloEl.className='elo-change '+(eloDelta>=0?'up':'down');eloEl.textContent=(eloDelta>=0?'+':'')+eloDelta+' ELO';
+    document.getElementById('coinChangeDisplay').textContent=(coinDelta>=0?'+':'')+coinDelta+' 🪙';
+    document.getElementById('coinChangeDisplay').style.color=coinDelta>=0?'var(--green)':'var(--red)';
+    // Notify socket
+    if(socket&&currentRoomId&&gs.config.mode==='online'){
+      socket.emit('gameOver',{roomId:currentRoomId,result,winner:winnerColor});
+    }
+  } else {
+    document.getElementById('eloChange').style.display='none';
+  }
+  overlay.classList.add('show');
+}
+
+// ════════════════════════════════════════════════
+// SOUND
+// ════════════════════════════════════════════════
+function playSound(type){
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);const c={move:{f:440,d:.08,t:'sine'},capture:{f:280,d:.15,t:'square'},check:{f:600,d:.2,t:'sawtooth'}}[type]||{f:440,d:.08,t:'sine'};o.type=c.t;o.frequency.value=c.f;g.gain.setValueAtTime(.15,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+c.d);o.start();o.stop(ctx.currentTime+c.d);}catch(e){}
+}
+
+// ════════════════════════════════════════════════
+// START GAME
+// ════════════════════════════════════════════════
+function startNewGame(config){
+  initGame(config);
+  document.getElementById('pWhiteName').textContent=config.whiteName||playerData.username;
+  document.getElementById('pBlackName').textContent=config.blackName||(config.mode==='vsai'?'Computer':'Player 2');
+  document.getElementById('pWhiteElo').textContent='ELO '+playerData.elo;
+  document.getElementById('pBlackElo').textContent='ELO '+(config.mode==='vsai'?1200:playerData.elo);
+  document.getElementById('gameModeLabel').textContent=config.modeLabel||'Rapid';
+  document.getElementById('gameTitle').textContent='Chess';
+  document.getElementById('spectatorBadge').style.display=config.spectating?'':'none';
+  const initials=playerData.username.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'P';
+  document.getElementById('pWhiteAvatar').textContent=initials;
+  document.getElementById('pBlackAvatar').textContent=config.mode==='vsai'?'🤖':config.spectating?config.blackName[0]:'P2';
+  document.getElementById('inGameActions').style.display=config.spectating?'none':'';
+  showScreen('game');initTimers();renderBoard();updateStatusBar();updateCapturedPieces();
+}
+
+// ════════════════════════════════════════════════
+// ONLINE ROOM
+// ════════════════════════════════════════════════
+function generateRoomCode(){return Math.random().toString(36).slice(2,8).toUpperCase();}
+
+function joinOnlineRoom(roomId){
+  initSocket();
+  socket.emit('joinRoom',{roomId,player:{username:playerData.username,id:playerData.id,elo:playerData.elo}});
+  startNewGame({mode:'online',modeLabel:'Online',whiteName:playerData.username,blackName:'Opponent',totalTime:600,betAmount:0});
+  currentRoomId=roomId;
+  showToast('🔌 Joining room: '+roomId);
+}
+
+function renderActiveRooms(rooms){
+  const el=document.getElementById('spectateMatchList');
+  if(!rooms.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">👁</div><p>No live matches</p></div>';return;}
+  el.innerHTML=rooms.map(r=>`
+    <div class="match-card" data-room="${r.id}">
+      <div class="live-dot"></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:13px">${r.white} vs ${r.black}</div><div style="font-size:11px;color:var(--text2)">${r.moves} moves · ${r.spectators} watching</div></div>
+      <span style="color:var(--accent2);font-size:16px">👁</span>
+    </div>`).join('');
+  el.querySelectorAll('.match-card').forEach(el=>{
+    el.addEventListener('click',()=>{
+      initSocket();
+      socket.emit('joinRoom',{roomId:el.dataset.room,player:{username:playerData.username,id:playerData.id}});
+      startNewGame({mode:'spectate',modeLabel:'Spectating',whiteName:'White',blackName:'Black',totalTime:0,spectating:true});
+    });
+  });
+}
+
+// ════════════════════════════════════════════════
+// ADMIN PANEL
+// ════════════════════════════════════════════════
+let adminKey='';
+async function adminFetch(url,opts={}){
+  return fetch(url,{...opts,headers:{...opts.headers,'x-admin-key':adminKey,'Content-Type':'application/json'}});
+}
+
+async function loadAdminStats(){
+  try{const r=await adminFetch('/api/admin/stats');const d=await r.json();
+    document.getElementById('adTotalPlayers').textContent=d.totalPlayers;
+    document.getElementById('adTotalMatches').textContent=d.totalMatches;
+    document.getElementById('adTotalCoins').textContent=d.totalCoins;
+    document.getElementById('adAvgElo').textContent=d.avgElo;
+  }catch(e){showToast('⚠️ Load failed');}
+}
+
+async function loadAdminPlayers(){
+  try{const r=await adminFetch('/api/admin/players');const players=await r.json();
+    const el=document.getElementById('adminPlayersList');
+    if(!players.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><p>No players</p></div>';return;}
+    el.innerHTML=players.map(p=>`
+      <div class="admin-player-row ${p.banned?'banned':''}">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:13px">${p.username} ${p.id===playerData.id?'<span style="color:var(--accent);font-size:10px">(You)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text2)">ELO: ${p.elo} · 🪙${p.coins} · ${p.games||0} games${p.banned?' · 🚫 BANNED':''}</div>
+        </div>
+        <div class="admin-actions">
+          <button class="admin-btn coins" data-id="${p.id}" data-name="${p.username}">🪙</button>
+          ${p.banned
+            ?`<button class="admin-btn unban" data-id="${p.id}">✅</button>`
+            :`<button class="admin-btn ban" data-id="${p.id}">🚫</button>`}
+        </div>
+      </div>`).join('');
+    el.querySelectorAll('.admin-btn.ban').forEach(btn=>btn.addEventListener('click',async()=>{
+      if(!confirm('Ban this player?'))return;
+      await adminFetch(`/api/admin/players/${btn.dataset.id}/ban`,{method:'POST'});
+      showToast('🚫 Player banned');loadAdminPlayers();
+    }));
+    el.querySelectorAll('.admin-btn.unban').forEach(btn=>btn.addEventListener('click',async()=>{
+      await adminFetch(`/api/admin/players/${btn.dataset.id}/unban`,{method:'POST'});
+      showToast('✅ Player unbanned');loadAdminPlayers();
+    }));
+    el.querySelectorAll('.admin-btn.coins').forEach(btn=>btn.addEventListener('click',()=>{
+      document.getElementById('coinsModalPlayer').textContent=btn.dataset.name;
+      document.getElementById('coinsAmount').value='';
+      document.getElementById('coinsModal').classList.add('show');
+      document.getElementById('confirmCoins').onclick=async()=>{
+        const amount=parseInt(document.getElementById('coinsAmount').value)||0;
+        await adminFetch(`/api/admin/players/${btn.dataset.id}/coins`,{method:'POST',body:JSON.stringify({amount})});
+        document.getElementById('coinsModal').classList.remove('show');
+        showToast('🪙 Coins updated!');loadAdminPlayers();
+      };
+    }));
+  }catch(e){showToast('⚠️ Load failed');}
+}
+
+async function loadAdminMatches(){
+  try{const r=await adminFetch('/api/admin/matches');const matches=await r.json();
+    const el=document.getElementById('adminMatchesList');
+    if(!matches.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">♟</div><p>No matches</p></div>';return;}
+    el.innerHTML=matches.map(m=>`
+      <div class="history-item">
+        <div class="history-result">${m.status==='playing'?'🔴':'✅'}</div>
+        <div class="history-info">
+          <div class="history-vs">${m.whiteId||'?'} vs ${m.blackId||'?'}</div>
+          <div class="history-meta">${m.mode||'rapid'} · ${m.status} · ${m.moves||0} moves</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">🪙${m.betAmount||0}</div>
+      </div>`).join('');
+  }catch(e){showToast('⚠️ Load failed');}
+}
+
+// ════════════════════════════════════════════════
+// SCREEN NAV
+// ════════════════════════════════════════════════
+function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+function showToast(msg){
+  const c=document.getElementById('toastContainer');const t=document.createElement('div');
+  t.className='toast';t.textContent=msg;c.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},2500);
+}
+
+// ════════════════════════════════════════════════
+// EVENT LISTENERS
+// ════════════════════════════════════════════════
+
+// Tabs — Home
+document.querySelectorAll('#screen-home .tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('#screen-home .tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+    ['play','leaderboard','history','profile'].forEach(n=>document.getElementById('tab-'+n).style.display=tab.dataset.tab===n?'':'none');
+    if(tab.dataset.tab==='leaderboard')loadLeaderboard();
+    if(tab.dataset.tab==='profile')updateUI();
+  });
+});
+
+// Tabs — Admin
+document.querySelectorAll('#screen-admin .tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('#screen-admin .tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+    ['admin-stats','admin-players','admin-matches'].forEach(n=>document.getElementById('tab-'+n).style.display=tab.dataset.tab===n?'':'none');
+    if(tab.dataset.tab==='admin-players')loadAdminPlayers();
+    if(tab.dataset.tab==='admin-matches')loadAdminMatches();
+  });
+});
+
+// Game modes
+document.getElementById('btnVsAI').addEventListener('click',()=>{
+  startNewGame({mode:'vsai',modeLabel:'vs AI',whiteName:playerData.username,blackName:'Computer',totalTime:0,betAmount:0});
+});
+document.getElementById('btnVsLocal').addEventListener('click',()=>{
+  startNewGame({mode:'local',modeLabel:'Local',whiteName:'Player 1',blackName:'Player 2',totalTime:600,betAmount:0});
+});
+document.getElementById('btnVsOnline').addEventListener('click',()=>{
+  document.getElementById('onlineRoomModal').classList.add('show');
+});
+document.getElementById('btnSpectate').addEventListener('click',()=>{
+  showScreen('spectate');initSocket();socket.emit('getActiveRooms');
+});
+
+// Online room modal
+document.getElementById('btnCreateRoom').addEventListener('click',()=>{
+  const code=generateRoomCode();
+  document.getElementById('onlineRoomModal').classList.remove('show');
+  document.getElementById('bettingModal').classList.add('show');
+  document.getElementById('betBalance').textContent=playerData.coins.toLocaleString();
+  document.getElementById('betInput').value='';
+  document.getElementById('betConfirm').onclick=()=>{
+    const bet=parseInt(document.getElementById('betInput').value)||0;
+    if(bet>playerData.coins){showToast('❌ Insufficient coins!');return;}
+    document.getElementById('bettingModal').classList.remove('show');
+    joinOnlineRoom(code);
+    showToast('🔑 Room Code: '+code);
+  };
+  document.getElementById('betCancel').onclick=()=>{document.getElementById('bettingModal').classList.remove('show');joinOnlineRoom(code);showToast('🔑 Room: '+code);};
+});
+document.getElementById('btnJoinRoom').addEventListener('click',()=>{
+  const code=document.getElementById('roomInput').value.trim().toUpperCase();
+  if(!code){showToast('❌ Enter a room code');return;}
+  document.getElementById('onlineRoomModal').classList.remove('show');
+  joinOnlineRoom(code);
+});
+document.getElementById('cancelRoomModal').addEventListener('click',()=>document.getElementById('onlineRoomModal').classList.remove('show'));
+
+// Bet presets
+document.querySelectorAll('.bet-preset').forEach(el=>el.addEventListener('click',()=>document.getElementById('betInput').value=el.dataset.bet));
+
+// In-game actions
+document.getElementById('btnOfferDraw').addEventListener('click',()=>{
+  if(gameState?.config.mode==='online'&&socket&&currentRoomId){socket.emit('offerDraw',{roomId:currentRoomId});showToast('🤝 Draw offered');}
+  else if(confirm('Accept draw?')){gameState.status='stalemate';stopTimer();showGameOver();}
+});
+document.getElementById('btnResign').addEventListener('click',()=>{
+  if(!confirm('Resign the game?'))return;
+  if(gameState?.config.mode==='online'&&socket&&currentRoomId)socket.emit('resign',{roomId:currentRoomId,color:myColor});
+  gameState.status='checkmate';gameState.turn=myColor||'w';stopTimer();showGameOver();
+});
+
+// Game over buttons
+document.getElementById('btnRematch').addEventListener('click',()=>{
+  document.getElementById('gameOverOverlay').classList.remove('show');
+  if(gameState?.config.mode==='online'&&socket&&currentRoomId){socket.emit('requestRematch',{roomId:currentRoomId});showToast('🔄 Rematch requested...');}
+  else startNewGame(gameState.config);
+});
+document.getElementById('btnBackHome').addEventListener('click',()=>{document.getElementById('gameOverOverlay').classList.remove('show');stopTimer();showScreen('home');});
+document.getElementById('gameBack').addEventListener('click',()=>{stopTimer();showScreen('home');});
+document.getElementById('spectateBack').addEventListener('click',()=>showScreen('home'));
+document.getElementById('adminBack').addEventListener('click',()=>showScreen('home'));
+
+// Admin login
+document.getElementById('adminBtn').addEventListener('click',()=>document.getElementById('adminLoginModal').classList.add('show'));
+document.getElementById('cancelAdminLogin').addEventListener('click',()=>document.getElementById('adminLoginModal').classList.remove('show'));
+document.getElementById('confirmAdminLogin').addEventListener('click',()=>{
+  adminKey=document.getElementById('adminKeyInput').value;
+  document.getElementById('adminLoginModal').classList.remove('show');
+  localStorage.setItem('admin_authed','true');
+  showScreen('admin');loadAdminStats();
+});
+document.getElementById('cancelCoins').addEventListener('click',()=>document.getElementById('coinsModal').classList.remove('show'));
+
+// Admin actions
+document.getElementById('adResetLeaderboard').addEventListener('click',async()=>{
+  if(!confirm('Reset ALL player ELOs to 1200?'))return;
+  await adminFetch('/api/admin/leaderboard/reset',{method:'POST'});
+  showToast('✅ Leaderboard reset!');loadAdminStats();
+});
+document.getElementById('adRefreshStats').addEventListener('click',loadAdminStats);
+document.getElementById('btnRefreshLb').addEventListener('click',loadLeaderboard);
+document.getElementById('btnRefreshSpectate').addEventListener('click',()=>{if(socket)socket.emit('getActiveRooms');});
+document.getElementById('btnSyncStats').addEventListener('click',syncToServer);
+document.getElementById('btnResetStats').addEventListener('click',()=>{
+  if(!confirm('Reset all your statistics?'))return;
+  playerData.wins=0;playerData.losses=0;playerData.draws=0;playerData.games=0;playerData.elo=1200;playerData.coins=1000;playerData.history=[];
+  saveData();updateUI();showToast('✅ Stats reset!');
+});
+
+// Admin search
+document.getElementById('adminSearchInput').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  document.querySelectorAll('.admin-player-row').forEach(row=>{
+    row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';
+  });
+});
+
+// Theme
+document.getElementById('themeToggle').addEventListener('click',()=>{
+  document.body.classList.toggle('theme-light');
+  document.getElementById('themeToggle').textContent=document.body.classList.contains('theme-light')?'☀️':'🌙';
+});
+
+// Resize
+window.addEventListener('resize',()=>{if(document.getElementById('screen-game').classList.contains('active'))renderBoard();});
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+initTelegramUser();
+</script>
+</body>
+</html>
